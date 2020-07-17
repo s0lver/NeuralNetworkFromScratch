@@ -1,10 +1,12 @@
 package com.s0lver;
 
-import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
+import static com.s0lver.Utils.calculateError;
+
 public class NeuralNetwork {
-    private final Layer[] layers;
+    private final LinkedList<Layer> layers;
 
     private final Layer outputLayer;
 
@@ -13,13 +15,15 @@ public class NeuralNetwork {
     }
 
     public NeuralNetwork(List<int[]> layerDimensions) {
-        this.layers = new Layer[layerDimensions.size()];
-        for (int i = 0; i < layerDimensions.size(); i++) {
-            var dim = layerDimensions.get(i);
-            layers[i] = new Layer(dim[0], dim[1]);
+        this.layers = new LinkedList<>();
+        for (int[] dim : layerDimensions) {
+            layers.add(new Layer(dim[0] + 1, dim[1] + 1));
         }
+        this.outputLayer = layers.getLast();
+    }
 
-        this.outputLayer = layers[layers.length - 1];
+    public void setWeightsForNeuronInLayer(int layer, int neuron, double[] weights) {
+        layers.get(layer).getNeuron(neuron).setWeights(weights);
     }
 
     /**
@@ -27,23 +31,42 @@ public class NeuralNetwork {
      *
      * @param input An input (n-dimensional vector) for the network.
      */
-    public double[] forward(double[] input) {
-        // First, input to input layer
-        layers[0] = new Layer(input);
-
-        // Then forward for the rest of layers
-        for (int i = 1; i < layers.length; i++) {
-            for (int j = 0; j < layers[i].getNumOfNeurons(); j++) {
-                double sum = 0.0;
-                for (int k = 0; k < layers[i - 1].getNumOfNeurons(); k++) {
-                    sum += layers[i - 1].getNeuron(k).getValue() * layers[i].getNeuron(j).getWeight(k);
-                }
-                layers[i].getNeuron(j).setValue(Utils.Sigmoid(sum));
-            }
+    public void forward(double[] input) {
+        var firstLayer = layers.get(0);
+        Neuron[] neurons = firstLayer.getNeurons();
+        for (int i = 1; i < neurons.length; i++) {
+            Neuron neuron = neurons[i];
+            neuron.setOutput(input[i - 1]);
         }
 
-        return Arrays.stream(outputLayer.getNeurons()).mapToDouble(Neuron::getValue).toArray();
+        // Then forward for the rest of layers
+        for (int i = 1; i < layers.size(); i++) {
+            final Layer ithLayer = layers.get(i);
+            // for (int j = 0; j < ithLayer.getNumOfNeurons(); j++) {
+            for (int j = 1; j < ithLayer.getNumOfNeurons(); j++) {
+                double neuronInput = 0.0;
+                final Layer previousLayer = layers.get(i - 1);
+                for (int k = 0; k < previousLayer.getNumOfNeurons(); k++) {
+                    final double product = previousLayer.getNeuron(k).getOutput() * ithLayer.getNeuron(j).getWeight(k);
+                    neuronInput += product;
+                }
+                final double out = Utils.Sigmoid(neuronInput);
+                ithLayer.getNeuron(j).setOutput(out);
+                // System.out.println(String.format("layer%s * layer%s[%s] = %s. sig(%s) = %s", (i - 1), i, j, neuronInput, neuronInput, out));
+            }
+        }
     }
+
+    public Prediction predict(TrainingData trainingData) {
+        forward(trainingData.getData());
+        double[] predicted = new double[outputLayer.getNumOfNeurons() - 1];
+        for (int i = 1; i < outputLayer.getNumOfNeurons(); i++) {
+            predicted[i - 1] = outputLayer.getNeuron(i).getOutput();
+        }
+        double error = calculateError(predicted, trainingData.getExpectedOutput());
+        return new Prediction(predicted, trainingData.getExpectedOutput(), error);
+    }
+
 
     /**
      * Performs the training of the network
@@ -62,56 +85,68 @@ public class NeuralNetwork {
     }
 
     private void backward(double learningRate, TrainingData trainingData) {
-        int numOfLayers = layers.length;
+        int numOfLayers = layers.size();
         int outIndex = numOfLayers - 1;
 
-        // Updating the output layers, for each output neuron
-        for (int i = 0; i < layers[outIndex].getNumOfNeurons(); i++) {
-            double output = layers[outIndex].getNeuron(i).getValue();
-            double target = trainingData.getExpectedOutput()[i];
-            double derivative = output - target;
-            double delta = derivative * (output * (1 - output));
-            layers[outIndex].getNeuron(i).setGradient(delta);
-
-            // for each weight
-            for (int j = 0; j < layers[outIndex].getNeuron(i).getNumOfWeights(); j++) {
-                double previousOutput = layers[outIndex - 1].getNeuron(j).getValue();
+        // Updating the output layer, for each output neuron
+        for (int i = 1; i < outputLayer.getNumOfNeurons(); i++) {
+            final Neuron ithNeuron = outputLayer.getNeuron(i);
+            double output_i = ithNeuron.getOutput();
+            double target_i = trainingData.getExpectedOutput()[i - 1]; // i-1 because the output does not have the bias...
+            double d_totalError_wrt_out_neuron_i = output_i - target_i;
+            final double sigmoidDerivative = output_i * (1 - output_i);
+            double delta = d_totalError_wrt_out_neuron_i * sigmoidDerivative;
+            ithNeuron.setGradient(delta);
+            for (int j = 0; j < ithNeuron.getNumOfWeights(); j++) {
+                double previousOutput = layers.get(outIndex - 1).getNeuron(j).getOutput();
                 double error = delta * previousOutput;
-                layers[outIndex].getNeuron(i).setCacheWeight(j, layers[outIndex].getNeuron(i).getWeight(j) - learningRate * error);
+                final double newWeight = ithNeuron.getWeight(j) - learningRate * error;
+                ithNeuron.setCacheWeight(j, newWeight);
+                // System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", outIndex, i, j, newWeight));
             }
         }
 
         // Update subsequent layers
         for (int i = outIndex - 1; i > 0; i--) { // We don't process layer 0 as it is the input layer
             // For all neurons in layer
-            for (int j = 0; j < layers[i].getNumOfNeurons(); j++) {
-                double output = layers[i].getNeuron(j).getValue();
+            final Layer ithLayer = layers.get(i);
+            //             for (int j = 0; j < ithLayer.getNumOfNeurons(); j++) {
+            for (int j = 1; j < ithLayer.getNumOfNeurons(); j++) {
+                final Neuron jthNeuron = ithLayer.getNeuron(j);
+                double output = jthNeuron.getOutput();
                 double gradientSum = sumGradient(j, i + 1);
                 double delta = (gradientSum) * (output * (1 - output));
-                layers[i].getNeuron(j).setGradient(delta);
+                jthNeuron.setGradient(delta);
 
                 // For all its weights
-                for (int k = 0; k < layers[i].getNeuron(j).getNumOfWeights(); k++) {
-                    double previousOutput = layers[i - 1].getNeuron(k).getValue();
+                for (int k = 0; k < jthNeuron.getNumOfWeights(); k++) {
+                    double previousOutput = layers.get(i - 1).getNeuron(k).getOutput();
                     double error = delta * previousOutput;
-                    layers[i].getNeuron(j).setCacheWeight(k, layers[i].getNeuron(j).getWeight(k) - learningRate * error);
+                    final double newWeight = jthNeuron.getWeight(k) - learningRate * error;
+                    jthNeuron.setCacheWeight(k, newWeight);
+                    // System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", i, j, k, newWeight));
                 }
             }
         }
-        // Finally update the weights
-        for (int i = 0; i < layers.length; i++) {
-            for (int j = 0; j < layers[i].getNumOfNeurons(); j++) {
-                layers[i].getNeuron(j).updateWeight();
+
+        // Finally update the inputs (weights) for neurons across all layers (except input layer).
+        for (int currentLayer = 1; currentLayer < layers.size(); currentLayer++) {
+            Layer layer = layers.get(currentLayer);
+            // We don't update the weight of bias neuron (just to reproduce blog results)
+            for (int n = 1; n < layer.getNumOfNeurons(); n++) {
+                Neuron neuron = layer.getNeuron(n);
+                neuron.updateWeights();
             }
         }
     }
 
-    public double sumGradient(int nIndex, int lIndex) {
+    public double sumGradient(int neuron, int layer) {
         double gradientSum = 0;
-        Layer currentLayer = layers[lIndex];
-        for (int i = 0; i < currentLayer.getNumOfNeurons(); i++) {
+        Layer currentLayer = layers.get(layer);
+        // we start at 1  because we don't calculate the gradient of the bias neurons, we skip them.
+        for (int i = 1; i < currentLayer.getNumOfNeurons(); i++) {
             Neuron currentNeuron = currentLayer.getNeuron(i);
-            gradientSum += currentNeuron.getWeight(nIndex) * currentNeuron.getGradient();
+            gradientSum += currentNeuron.getWeight(neuron) * currentNeuron.getGradient();
         }
         return gradientSum;
     }

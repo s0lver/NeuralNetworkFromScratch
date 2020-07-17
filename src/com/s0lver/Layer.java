@@ -11,25 +11,14 @@ public class Layer {
      */
     public Layer(int inputWeightsPerNeuron, int numberNeurons) {
         this.neurons = new Neuron[numberNeurons];
-        for (int i = 0; i < numberNeurons; i++) {
+        this.neurons[0] = new Neuron();
+
+        for (int i = 1; i < numberNeurons; i++) {
             double[] weights = new double[inputWeightsPerNeuron];
             for (int j = 0; j < inputWeightsPerNeuron; j++) {
                 weights[j] = Utils.generateRandomDouble(Neuron.minWeightValue, Neuron.maxWeightValue);
             }
-            neurons[i] = new Neuron(weights, Utils.generateRandomDouble(0, 1));
-        }
-    }
-
-    /**
-     * Constructor used for the input layer
-     *
-     * @param input The input data for the neurons in input layer.
-     *              The input length defines the number of neurons in the input layer.
-     */
-    public Layer(double[] input) {
-        this.neurons = new Neuron[input.length];
-        for (int i = 0; i < input.length; i++) {
-            this.neurons[i] = new Neuron(input[i]);
+            neurons[i] = new Neuron(weights);
         }
     }
 

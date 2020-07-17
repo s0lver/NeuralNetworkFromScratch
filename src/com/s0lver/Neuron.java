@@ -4,8 +4,7 @@ public class Neuron {
     private double[] weights;
     private double[] cacheWeights;
     private double gradient;
-    private double bias;
-    private double value;
+    private double output;
 
     static double minWeightValue;
     static double maxWeightValue;
@@ -14,25 +13,20 @@ public class Neuron {
      * Constructor for the neurons in hidden and output neurons
      *
      * @param weights The weights to assign
-     * @param bias    The bias to assign
      */
-    public Neuron(double[] weights, double bias) {
+    public Neuron(double[] weights) {
         this.weights = weights;
-        this.bias = bias;
         this.cacheWeights = weights;
         this.gradient = 0;
     }
 
     /**
-     * Constructor used for the input neurons
-     *
-     * @param value The value to assign.
+     * Constructor used for the bias neurons
      */
-    public Neuron(double value) {
+    public Neuron() {
         this.weights = null;
-        this.bias = -1;
-        this.gradient = -1;
-        this.value = value;
+        this.gradient = 0;
+        this.output = 1;
     }
 
     public static void setRangeWeight(double minWeightValue, double maxWeightValue) {
@@ -43,21 +37,18 @@ public class Neuron {
     /**
      * Updates the weights with the calculated values after the backpropagation step.
      */
-    public void updateWeight() {
-        this.weights = cacheWeights;
+    public void updateWeights() {
+        if (this.weights.length - 1 >= 0)
+            System.arraycopy(this.cacheWeights, 1, this.weights, 1, this.weights.length - 1);
     }
 
-    public double getValue() {
-        return value;
+    public double getOutput() {
+        return output;
     }
 
-    public void setValue(double value) {
-        this.value = value;
+    public void setOutput(double output) {
+        this.output = output;
     }
-
-    //    public double[] getWeights() {
-    //        return weights;
-    //    }
 
     public int getNumOfWeights() {
         return weights.length;
@@ -77,5 +68,9 @@ public class Neuron {
 
     public double getGradient() {
         return gradient;
+    }
+
+    public void setWeights(double[] weights) {
+        this.weights = weights;
     }
 }
