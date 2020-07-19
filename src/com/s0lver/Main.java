@@ -1,12 +1,14 @@
+
 package com.s0lver;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Main {
     public static void main(String[] args) {
         Main main = new Main();
-        main.executeXorProblem();
-        System.out.println();
+        //        main.executeXorProblem();
+        //        System.out.println();
         main.executeBlogExample();
     }
 
@@ -20,10 +22,14 @@ public class Main {
 
         NeuralNetwork neuralNetwork = new NeuralNetwork(dimensions);
 
-        neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.15, 0.2});
-        neuralNetwork.setWeightsForNeuronInLayer(1, 2, new double[]{0.35, 0.25, 0.3});
-        neuralNetwork.setWeightsForNeuronInLayer(2, 1, new double[]{0.6, 0.40, 0.45});
-        neuralNetwork.setWeightsForNeuronInLayer(2, 2, new double[]{0.6, 0.50, 0.55});
+        //        neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.15, 0.2});
+        //        neuralNetwork.setWeightsForNeuronInLayer(1, 2, new double[]{0.35, 0.25, 0.3});
+        //        neuralNetwork.setWeightsForNeuronInLayer(2, 1, new double[]{0.6, 0.40, 0.45});
+        //        neuralNetwork.setWeightsForNeuronInLayer(2, 2, new double[]{0.6, 0.50, 0.55});
+        neuralNetwork.setWeightsForNeuronInLayer(1, 0, new double[]{0.35, 0.15, 0.2});
+        neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.25, 0.3});
+        neuralNetwork.setWeightsForNeuronInLayer(2, 0, new double[]{0.6, 0.40, 0.45});
+        neuralNetwork.setWeightsForNeuronInLayer(2, 1, new double[]{0.6, 0.50, 0.55});
 
 
         System.out.println("Output before training:");
@@ -33,8 +39,15 @@ public class Main {
 
         neuralNetwork.train(trainingDataset, 10000, 0.5);
 
+        System.out.println("Output after training:");
         prediction = neuralNetwork.predict(trainingDataset[0]);
         System.out.println(prediction);
+
+        for (Layer layer : neuralNetwork.getLayers()) {
+            for (Neuron neuron : layer.getNeurons()) {
+                System.out.println(Arrays.toString(neuron.getWeights()));
+            }
+        }
     }
 
     public void executeXorProblem() {
