@@ -7,7 +7,6 @@ import static com.s0lver.Utils.calculateError;
 
 public class NeuralNetwork {
     private final LinkedList<Layer> layers;
-
     private final Layer outputLayer;
 
     static {
@@ -18,11 +17,11 @@ public class NeuralNetwork {
         this.layers = new LinkedList<>();
 
         for (int i = 0; i < layerDimensions.size() - 1; i++) {
-            int[] dim = layerDimensions.get(i);
-            layers.add(new Layer(dim[0], dim[1], true));
+            int[] dimension = layerDimensions.get(i);
+            layers.add(new Layer(dimension[0], dimension[1], true));
         }
-        int[] lastDim = layerDimensions.get(layerDimensions.size() - 1);
-        layers.add(new Layer(lastDim[0], lastDim[1], false));
+        int[] lastDimension = layerDimensions.get(layerDimensions.size() - 1);
+        layers.add(new Layer(lastDimension[0], lastDimension[1], false));
         this.outputLayer = layers.getLast();
     }
 
@@ -44,13 +43,14 @@ public class NeuralNetwork {
             for (int j = 0; j < ithLayer.getNumOfNeurons(); j++) {
                 double neuronInput = 0.0;
                 final Layer previousLayer = layers.get(i - 1);
+
+                final Neuron biasNeuron = previousLayer.getBiasNeuron();
+                neuronInput += biasNeuron.getOutput() * ithLayer.getNeuron(j).getBiasWeight();
+
                 for (int k = 0; k < previousLayer.getNumOfNeurons(); k++) {
                     final double product = previousLayer.getNeuron(k).getOutput() * ithLayer.getNeuron(j).getWeight(k);
                     neuronInput += product;
                 }
-
-                final Neuron biasNeuron = previousLayer.getBiasNeuron();
-                neuronInput += biasNeuron.getOutput() * ithLayer.getNeuron(j).getBiasWeight();
 
                 final double out = Utils.Sigmoid(neuronInput);
                 ithLayer.getNeuron(j).setOutput(out);
@@ -94,6 +94,29 @@ public class NeuralNetwork {
         }
     }
 
+    private void calculateLocalGradientForNeuron(Neuron neuron, double causedErrorInNextLayers) {
+        double output = neuron.getOutput();
+        double outputDerivative = output * (1 - output);
+        double delta = causedErrorInNextLayers * outputDerivative;
+        neuron.setGradient(delta);
+    }
+
+    private void calculateNewWeightsForNeuron(Neuron neuron, Layer previousLayer, double learningRate) {
+        double delta = neuron.getGradient();
+        double previousOutput = previousLayer.getBiasNeuron().getOutput(); // THIS IS ALWAYS 1!!
+        double error = delta * previousOutput;
+        double newWeight = neuron.getBiasWeight() - learningRate * error;
+        neuron.setCacheBiasWeight(newWeight);
+
+        for (int j = 0; j < neuron.getNumOfWeights(); j++) {
+            previousOutput = previousLayer.getNeuron(j).getOutput();
+            error = delta * previousOutput;
+            newWeight = neuron.getWeight(j) - learningRate * error;
+            neuron.setCacheWeight(j, newWeight);
+            //                System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", outIndex, i, j, newWeight));
+        }
+    }
+
     private void backward(double learningRate, TrainingData trainingData) {
         int numOfLayers = layers.size();
         int outIndex = numOfLayers - 1;
@@ -104,20 +127,8 @@ public class NeuralNetwork {
             double output_i = ithNeuron.getOutput();
             double target_i = trainingData.getExpectedOutput()[i];
             double d_totalError_wrt_out_neuron_i = output_i - target_i;
-            final double sigmoidDerivative = output_i * (1 - output_i);
-            double delta = d_totalError_wrt_out_neuron_i * sigmoidDerivative;
-            ithNeuron.setGradient(delta);
-            for (int j = 0; j < ithNeuron.getNumOfWeights(); j++) {
-                double previousOutput = layers.get(outIndex - 1).getNeuron(j).getOutput();
-                double error = delta * previousOutput;
-                final double newWeight = ithNeuron.getWeight(j) - learningRate * error;
-                ithNeuron.setCacheWeight(j, newWeight);
-                // System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", outIndex, i, j, newWeight));
-            }
-            double previousOutput = layers.get(outIndex - 1).getBiasNeuron().getOutput(); // THIS IS ALWAYS 1!!
-            double error = delta * previousOutput;
-            double newWeight = ithNeuron.getBiasWeight() - learningRate * error;
-            ithNeuron.setCacheBiasWeight(newWeight);
+            calculateLocalGradientForNeuron(ithNeuron, d_totalError_wrt_out_neuron_i);
+            calculateNewWeightsForNeuron(ithNeuron, layers.get(outIndex - 1), learningRate);
         }
 
         // Update subsequent layers
@@ -134,20 +145,21 @@ public class NeuralNetwork {
                 double delta = gradientSum * sigmoidDerivative;  // mi error en relacion con lo que causé
                 jthNeuron.setGradient(delta);
 
-                // For all its weights
-                for (int k = 0; k < jthNeuron.getNumOfWeights(); k++) {
-                    // this is actually d_net_jth_neuron wrt input weight k = output neuron k in previous layer
-                    double outputNeuronPreviousLayer = layers.get(i - 1).getNeuron(k).getOutput();
-                    double error = delta * outputNeuronPreviousLayer;
-                    final double newWeight = jthNeuron.getWeight(k) - learningRate * error;
-                    jthNeuron.setCacheWeight(k, newWeight);
-                    // System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", i, j, k, newWeight));
-                }
-
                 double previousOutput = layers.get(i - 1).getBiasNeuron().getOutput(); // THIS IS ALWAYS 1!!
                 double error = delta * previousOutput;
                 double newWeight = jthNeuron.getBiasWeight() - learningRate * error;
                 jthNeuron.setCacheBiasWeight(newWeight);
+
+                // For all its weights
+                for (int k = 0; k < jthNeuron.getNumOfWeights(); k++) {
+                    // this is actually d_net_jth_neuron wrt input weight k = output neuron k in previous layer
+                    double outputNeuronPreviousLayer = layers.get(i - 1).getNeuron(k).getOutput();
+                    error = delta * outputNeuronPreviousLayer;
+                    newWeight = jthNeuron.getWeight(k) - learningRate * error;
+                    jthNeuron.setCacheWeight(k, newWeight);
+                    //                    System.out.println(String.format("Layer %s, Neuron %s, weight %s, %s", i, j, k, newWeight));
+                }
+
             }
         }
 

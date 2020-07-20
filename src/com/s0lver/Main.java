@@ -22,10 +22,6 @@ public class Main {
 
         NeuralNetwork neuralNetwork = new NeuralNetwork(dimensions);
 
-        //        neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.15, 0.2});
-        //        neuralNetwork.setWeightsForNeuronInLayer(1, 2, new double[]{0.35, 0.25, 0.3});
-        //        neuralNetwork.setWeightsForNeuronInLayer(2, 1, new double[]{0.6, 0.40, 0.45});
-        //        neuralNetwork.setWeightsForNeuronInLayer(2, 2, new double[]{0.6, 0.50, 0.55});
         neuralNetwork.setWeightsForNeuronInLayer(1, 0, new double[]{0.35, 0.15, 0.2});
         neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.25, 0.3});
         neuralNetwork.setWeightsForNeuronInLayer(2, 0, new double[]{0.6, 0.40, 0.45});
