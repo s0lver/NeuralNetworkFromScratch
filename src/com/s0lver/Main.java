@@ -1,14 +1,24 @@
 
 package com.s0lver;
 
+import com.s0lver.neuralnetwork.Layer;
+import com.s0lver.neuralnetwork.NeuralNetwork;
+import com.s0lver.neuralnetwork.Neuron;
+import com.s0lver.neuralnetwork.TrainingData;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
+
 public class Main {
+    static {
+        Neuron.setRangeWeight(0.0, 1.0);
+    }
+
     public static void main(String[] args) {
         Main main = new Main();
-        //        main.executeXorProblem();
-        //        System.out.println();
+        main.executeXorProblem();
+        System.out.println();
         main.executeBlogExample();
     }
 
@@ -22,11 +32,10 @@ public class Main {
 
         NeuralNetwork neuralNetwork = new NeuralNetwork(dimensions);
 
-        neuralNetwork.setWeightsForNeuronInLayer(1, 0, new double[]{0.35, 0.15, 0.2});
-        neuralNetwork.setWeightsForNeuronInLayer(1, 1, new double[]{0.35, 0.25, 0.3});
-        neuralNetwork.setWeightsForNeuronInLayer(2, 0, new double[]{0.6, 0.40, 0.45});
-        neuralNetwork.setWeightsForNeuronInLayer(2, 1, new double[]{0.6, 0.50, 0.55});
-
+        neuralNetwork.setWeightsForNeuronInLayer(1, 0, 0.35, new double[]{0.15, 0.2});
+        neuralNetwork.setWeightsForNeuronInLayer(1, 1, 0.35, new double[]{0.25, 0.3});
+        neuralNetwork.setWeightsForNeuronInLayer(2, 0, 0.6, new double[]{0.40, 0.45});
+        neuralNetwork.setWeightsForNeuronInLayer(2, 1, 0.6, new double[]{0.50, 0.55});
 
         System.out.println("Output before training:");
 
@@ -40,7 +49,8 @@ public class Main {
         System.out.println(prediction);
 
         for (Layer layer : neuralNetwork.getLayers()) {
-            for (Neuron neuron : layer.getNeurons()) {
+            for (int i = 0; i < layer.getNumOfNeurons(); i++) {
+                Neuron neuron = layer.getNeuron(i);
                 System.out.println(Arrays.toString(neuron.getWeights()));
             }
         }
